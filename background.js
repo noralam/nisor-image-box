@@ -3,36 +3,163 @@ let injectionState = {
   prompts: [],
   currentIndex: 0,
   interval: 15000,
-  intervalId: null
+  intervalId: null,
+  generationComplete: false,
+  isSending: false,
+  lastSentAt: 0
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'startInjection') {
-    startInjection(message.prompts, message.interval);
+    startInjection(message);
   } else if (message.action === 'stopInjection') {
     stopInjection();
   }
 });
 
-async function startInjection(prompts, interval) {
-  injectionState.prompts = prompts;
+async function startInjection({ prompts, interval, images, apiKey, model }) {
+  injectionState.prompts = (prompts || []).map((item, index) => ({
+    prompt: item.prompt,
+    index: typeof item.index === 'number' ? item.index : index
+  }));
   injectionState.interval = interval;
-  injectionState.currentIndex = 0;
   injectionState.isRunning = true;
-  if (injectionState.intervalId) clearInterval(injectionState.intervalId);
-  await sendNextPrompt();
-  injectionState.intervalId = setInterval(async () => {
-    if (!injectionState.isRunning) { clearInterval(injectionState.intervalId); return; }
-    await sendNextPrompt();
-  }, injectionState.interval);
+  injectionState.currentIndex = 0;
+  injectionState.generationComplete = !(images && images.length);
+  injectionState.isSending = false;
+  injectionState.lastSentAt = 0;
+  if (injectionState.intervalId) {
+    clearTimeout(injectionState.intervalId);
+    injectionState.intervalId = null;
+  }
+  scheduleNextPrompt();
+
+  if (images && images.length) {
+    void generatePromptsInBackground(images, apiKey, model);
+  }
 }
 
 function stopInjection() {
   injectionState.isRunning = false;
   if (injectionState.intervalId) {
-    clearInterval(injectionState.intervalId);
+    clearTimeout(injectionState.intervalId);
     injectionState.intervalId = null;
   }
+  injectionState.isSending = false;
+}
+
+async function generatePromptsInBackground(images, apiKey, model) {
+  if (!apiKey) {
+    chrome.runtime.sendMessage({ action: 'injectionError', error: 'Please enter your Gemini API key in Settings tab.' });
+    stopInjection();
+    return;
+  }
+
+  const activeModel = model || 'gemini-3.1-flash-lite';
+
+  try {
+    for (let index = 0; index < images.length; index++) {
+      if (!injectionState.isRunning) {
+        return;
+      }
+
+      const image = images[index];
+      const base64Data = image.data.split(',')[1];
+      const mimeTypeMatch = image.data.match(/^data:(.*?);base64,/i);
+      const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+
+      chrome.runtime.sendMessage({
+        action: 'generationProgress',
+        current: index + 1,
+        total: images.length
+      });
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {
+                  text: 'Analyze this image and create a detailed, creative text prompt that describes it. The prompt should be suitable for AI image generation tools. Focus on: style, mood, colors, composition, subject, lighting, and artistic details. Keep it concise but descriptive (2-3 sentences maximum).'
+                },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
+                  }
+                }
+              ]
+            }]
+          })
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = 'API request failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorMessage;
+        } catch (error) {
+          // Keep fallback error message.
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const prompt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!prompt) {
+        throw new Error('Gemini returned an empty prompt');
+      }
+
+      injectionState.prompts.push({ prompt, index });
+      chrome.runtime.sendMessage({
+        action: 'promptGenerated',
+        index,
+        prompt,
+        imageName: image.name
+      });
+      scheduleNextPrompt();
+    }
+
+    injectionState.generationComplete = true;
+    scheduleNextPrompt();
+  } catch (error) {
+    console.error('Error generating prompts:', error);
+    chrome.runtime.sendMessage({ action: 'injectionError', error: error.message });
+    stopInjection();
+  }
+}
+
+function scheduleNextPrompt() {
+  if (!injectionState.isRunning || injectionState.isSending) {
+    return;
+  }
+
+  if (injectionState.currentIndex >= injectionState.prompts.length) {
+    if (injectionState.generationComplete) {
+      stopInjection();
+      chrome.runtime.sendMessage({ action: 'injectionComplete' });
+    }
+    return;
+  }
+
+  const elapsed = Date.now() - injectionState.lastSentAt;
+  const delay = injectionState.lastSentAt === 0
+    ? 0
+    : Math.max(0, injectionState.interval - elapsed);
+
+  if (injectionState.intervalId) {
+    clearTimeout(injectionState.intervalId);
+    injectionState.intervalId = null;
+  }
+
+  injectionState.intervalId = setTimeout(() => {
+    injectionState.intervalId = null;
+    void sendNextPrompt();
+  }, delay);
 }
 
 async function focusTab(tab) {
@@ -107,11 +234,16 @@ async function dispatchTrustedClick(tabId, point) {
 }
 
 async function sendNextPrompt() {
-  if (injectionState.currentIndex >= injectionState.prompts.length) {
-    stopInjection();
-    chrome.runtime.sendMessage({ action: 'injectionComplete' });
+  if (!injectionState.isRunning || injectionState.isSending) {
     return;
   }
+
+  if (injectionState.currentIndex >= injectionState.prompts.length) {
+    scheduleNextPrompt();
+    return;
+  }
+
+  injectionState.isSending = true;
   try {
     const tabs = await chrome.tabs.query({ url: 'https://labs.google/fx/tools/flow*' });
     if (tabs.length === 0) throw new Error('Flow tab not found');
@@ -138,13 +270,17 @@ async function sendNextPrompt() {
 
     await dispatchTrustedClick(tab.id, result.submitButton);
 
-    chrome.runtime.sendMessage({ action: 'promptSent', index: injectionState.currentIndex });
+    chrome.runtime.sendMessage({ action: 'promptSent', index: currentPrompt.index });
+    injectionState.lastSentAt = Date.now();
     injectionState.currentIndex++;
 
   } catch (error) {
     console.error('Error sending prompt:', error);
     chrome.runtime.sendMessage({ action: 'injectionError', error: error.message });
     stopInjection();
+  } finally {
+    injectionState.isSending = false;
+    scheduleNextPrompt();
   }
 }
 

@@ -53,10 +53,14 @@ chrome.storage.local.get(['geminiApiKey', 'geminiModel', 'geminiCustomModel'], (
   }
 });
 
-// ── Save API key ──
-apiKeyInput.addEventListener('change', () => {
+function saveApiKey() {
   chrome.storage.local.set({ geminiApiKey: apiKeyInput.value.trim() });
-});
+}
+
+// ── Save API key ──
+apiKeyInput.addEventListener('input', saveApiKey);
+apiKeyInput.addEventListener('change', saveApiKey);
+apiKeyInput.addEventListener('blur', saveApiKey);
 
 // ── Save model selection ──
 modelSelect.addEventListener('change', () => {
@@ -277,11 +281,6 @@ function updatePromptsList() {
 
 // ── Start auto-injection ──
 startBtn.addEventListener('click', async () => {
-  if (generatedPrompts.length === 0) {
-    const success = await generatePrompts();
-    if (!success) return;
-  }
-
   const tabs = await chrome.tabs.query({ url: 'https://labs.google/fx/tools/flow*' });
   if (tabs.length === 0) {
     showStatus('Please open Google Flow in a tab first!', 'error');
@@ -293,9 +292,48 @@ startBtn.addEventListener('click', async () => {
   startBtn.style.display = 'none';
   stopBtn.style.display = 'block';
 
+  if (generatedPrompts.length === 0) {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      showStatus('Please enter your Gemini API key in Settings tab.', 'error');
+      isRunning = false;
+      startBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      return;
+    }
+
+    if (selectedImages.length === 0) {
+      showStatus('Please upload at least one image.', 'error');
+      isRunning = false;
+      startBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      return;
+    }
+
+    generatedPrompts = [];
+    updatePromptsList();
+    promptsSection.style.display = 'block';
+    setProgress(0, selectedImages.length);
+
+    chrome.runtime.sendMessage({
+      action: 'startInjection',
+      prompts: [],
+      interval: parseInt(intervalInput.value) * 1000,
+      images: selectedImages,
+      apiKey,
+      model: getModel()
+    });
+
+    showStatus('Generation started. Prompts will be inserted as they are ready.', 'success');
+    return;
+  }
+
   chrome.runtime.sendMessage({
     action: 'startInjection',
-    prompts: generatedPrompts,
+    prompts: generatedPrompts.map((item, index) => ({
+      prompt: item.prompt,
+      index
+    })),
     interval: parseInt(intervalInput.value) * 1000
   });
 
@@ -313,7 +351,18 @@ stopBtn.addEventListener('click', () => {
 
 // ── Listen for background script messages ──
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === 'promptSent') {
+  if (message.action === 'generationProgress') {
+    setProgress(message.current, message.total);
+    showStatus(`Processing image ${message.current} / ${message.total}…`, 'info');
+  } else if (message.action === 'promptGenerated') {
+    generatedPrompts[message.index] = {
+      prompt: message.prompt,
+      sent: false,
+      imageName: message.imageName
+    };
+    updatePromptsList();
+    promptsSection.style.display = 'block';
+  } else if (message.action === 'promptSent') {
     if (generatedPrompts[message.index]) {
       generatedPrompts[message.index].sent = true;
       updatePromptsList();
