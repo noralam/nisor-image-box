@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nisor Image box</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 480px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 16px 20px 0;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 14px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 9px 0;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.75);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+
+    .tab-btn.active {
+      background: white;
+      color: #667eea;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.25);
+      color: white;
+    }
+
+    /* ── Tab Panels ── */
+    .tab-panel {
+      display: none;
+      padding: 20px;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    /* ── Inputs ── */
+    .field-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      font-size: 13px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      color: #333;
+      background: #fafafa;
+    }
+
+    .field-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.12);
+      background: white;
+    }
+
+    select.field-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 5px;
+    }
+
+    /* ── Model badge ── */
+    .model-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, #667eea22, #764ba222);
+      border: 1px solid #667eea44;
+      color: #667eea;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      margin-top: 6px;
+    }
+
+    .model-badge::before {
+      content: '✦';
+      font-size: 9px;
+    }
+
+    /* ── Settings info card ── */
+    .info-card {
+      background: linear-gradient(135deg, #f0f3ff, #f5f0ff);
+      border: 1px solid #d8ddff;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 4px;
+    }
+
+    .info-card p {
+      font-size: 12px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .info-card strong {
+      color: #667eea;
+    }
+
+    /* ── Upload area ── */
+    .upload-area {
+      border: 2px dashed #667eea;
+      border-radius: 10px;
+      padding: 24px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: #f8f9ff;
+    }
+
+    .upload-area:hover {
+      background: #f0f2ff;
+      border-color: #764ba2;
+    }
+
+    .upload-area.dragover {
+      background: #e8ebff;
+      border-color: #764ba2;
+      transform: scale(1.01);
+    }
+
+    .upload-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+
+    .upload-text {
+      font-size: 13px;
+      color: #555;
+      font-weight: 500;
+    }
+
+    .upload-sub {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    /* ── Counter badge ── */
+    .counter-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #667eea;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+
+    /* ── Image preview grid ── */
+    .images-preview {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+
+    .images-preview::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .images-preview::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 2px;
+    }
+
+    .images-preview::-webkit-scrollbar-thumb {
+      background: #667eea;
+      border-radius: 2px;
+    }
+
+    .image-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid #e0e0e0;
+      transition: border-color 0.2s;
+    }
+
+    .image-item:hover {
+      border-color: #667eea;
+    }
+
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .image-item .remove-btn {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      background: rgba(220, 20, 60, 0.85);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .image-item:hover .remove-btn {
+      opacity: 1;
+    }
+
+    /* ── Interval row ── */
+    .settings-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .setting-item {
+      flex: 1;
+    }
+
+    .setting-item label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .setting-item input[type="number"] {
+      width: 100%;
+      padding: 9px 10px;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      font-size: 13px;
+      background: #fafafa;
+      transition: border-color 0.2s;
+    }
+
+    .setting-item input[type="number"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ff4757, #c0392b);
+      color: white;
+      margin-top: 10px;
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(255, 71, 87, 0.4);
+    }
+
+    /* ── Status ── */
+    .status {
+      margin-top: 14px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: center;
+      font-weight: 500;
+      display: none;
+    }
+
+    .status.info {
+      background: #e8f4fd;
+      color: #1e88e5;
+      border: 1px solid #90caf9;
+      display: block;
+    }
+
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #81c784;
+      display: block;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef5350;
+      display: block;
+    }
+
+    /* ── Prompts list ── */
+    .prompt-list {
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 10px;
+      background: #f7f8ff;
+      border-radius: 8px;
+      border: 1px solid #e0e4ff;
+    }
+
+    .prompt-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .prompt-list::-webkit-scrollbar-thumb {
+      background: #667eea;
+      border-radius: 2px;
+    }
+
+    .prompt-item {
+      padding: 8px 10px;
+      margin-bottom: 7px;
+      background: white;
+      border-radius: 6px;
+      font-size: 12px;
+      border-left: 3px solid #667eea;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      line-height: 1.5;
+    }
+
+    .prompt-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .prompt-item.sent {
+      opacity: 0.55;
+      border-left-color: #43a047;
+    }
+
+    /* ── Progress bar ── */
+    .progress-bar-wrap {
+      height: 5px;
+      background: #e8e8e8;
+      border-radius: 3px;
+      margin-top: 10px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress-bar-wrap.visible {
+      display: block;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header + Tabs -->
+    <div class="header">
+      <h1>🖼️ Nisor Image box</h1>
+      <div class="tabs">
+        <button class="tab-btn active" id="tabWorking">⚡ Working</button>
+        <button class="tab-btn" id="tabSettings">⚙️ Settings</button>
+      </div>
+    </div>
+
+    <!-- ══ WORKING TAB ══ -->
+    <div class="tab-panel active" id="panelWorking">
+
+      <!-- Upload Section -->
+      <div class="section">
+        <div class="section-title">Upload Images</div>
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Click or drag &amp; drop images here</div>
+          <div class="upload-sub">Supports up to 100 images at once</div>
+          <div class="counter-badge" id="imageCounter">0 images selected</div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" multiple>
+        <div class="images-preview" id="imagesPreview"></div>
+      </div>
+
+      <!-- Interval Setting -->
+      <div class="section">
+        <div class="section-title">Injection Settings</div>
+        <div class="settings-row">
+          <div class="setting-item">
+            <label>Interval (seconds)</label>
+            <input type="number" id="interval" min="5" max="120" value="15">
+          </div>
+          <div class="setting-item">
+            <label>Images Loaded</label>
+            <input type="number" id="maxImages" min="1" max="100" value="0" readonly>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-bar-wrap" id="progressWrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <!-- Prompts Preview -->
+      <div class="section" id="promptsSection" style="display: none;">
+        <div class="section-title">Generated Prompts</div>
+        <div class="prompt-list" id="promptsList"></div>
+      </div>
+
+      <!-- Control Buttons -->
+      <div class="section">
+        <button class="btn btn-primary" id="startBtn">Generate &amp; Start Auto-Inject</button>
+        <button class="btn btn-stop" id="stopBtn" style="display: none;">⏹ Stop Auto-Inject</button>
+      </div>
+
+      <!-- Status -->
+      <div id="status" class="status"></div>
+    </div>
+
+    <!-- ══ SETTINGS TAB ══ -->
+    <div class="tab-panel" id="panelSettings">
+
+      <!-- API Key -->
+      <div class="section">
+        <div class="section-title">Gemini API Key</div>
+        <input type="password" id="apiKey" class="field-input" placeholder="Enter your Gemini API key…">
+        <div class="field-hint">Your key is stored locally and never sent to any third-party server.</div>
+      </div>
+
+      <!-- Model -->
+      <div class="section">
+        <div class="section-title">AI Model</div>
+        <select id="modelSelect" class="field-input">
+          <option value="gemini-3.1-flash-lite" selected>gemini-3.1-flash-lite ✦ New (Recommended)</option>
+          <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+          <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+          <option value="custom">✏️ Custom model…</option>
+        </select>
+        <div id="customModelWrap" style="display:none; margin-top:8px;">
+          <input type="text" id="customModelInput" class="field-input" placeholder="Paste model ID e.g. gemini-3.1-flash-lite" autocomplete="off">
+          <div class="field-hint">Paste the exact model ID from <strong>Google AI Studio</strong> or <strong>AI Platform</strong>.</div>
+        </div>
+        <div class="model-badge" id="activeBadge">gemini-3.1-flash-lite</div>
+        <div class="field-hint">Recommended: <strong>gemini-3.1-flash-lite</strong> — fastest &amp; most cost-efficient for image analysis.</div>
+      </div>
+
+      <!-- Info card -->
+      <div class="info-card">
+        <p>
+          <strong>Image limit:</strong> You can upload <strong>50 – 100 images</strong> per session.<br>
+          <strong>Model:</strong> Each image is processed individually through the Gemini Vision API.<br>
+          <strong>Privacy:</strong> Images are only sent to Google's Generative AI endpoint using your own API key.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
