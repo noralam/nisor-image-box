@@ -4,6 +4,9 @@ Chrome extension for generating image prompts with Gemini and sending them into 
 
 Repository: https://github.com/noralam/nisor-image-box
 
+Author: Noor alam
+Website: https://aitolin.com/
+
 ## Overview
 
 Nisor Image Box lets you upload multiple images, generate prompt text from each image with the Gemini API, preview the generated prompts, and send them into Google Flow in sequence.
